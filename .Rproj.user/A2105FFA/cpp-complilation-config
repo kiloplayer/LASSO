@@ -1,0 +1,17 @@
+{
+    "args" : [
+        "-ID:/R/RStudio/resources/libclang/builtin-headers/3.4",
+        "-IC:/RBuildTools/3.4/mingw_64/x86_64-w64-mingw32/include",
+        "-IC:/RBuildTools/3.4/mingw_64/x86_64-w64-mingw32/include/c++",
+        "-IC:/RBuildTools/3.4/mingw_64/x86_64-w64-mingw32/include/c++/x86_64-w64-mingw32",
+        "-ID:/R/R-3.4.4/library/Rcpp/include",
+        "-ID:/R/R-3.4.4/library/RcppArmadillo/include",
+        "-std=gnu++11",
+        "-ID:/R/R-3.4.4/include",
+        "-DNDEBUG",
+        "-fopenmp"
+    ],
+    "hash" : "153238742015323830511532383051",
+    "is_cpp" : true,
+    "pch" : "Rcpp"
+}

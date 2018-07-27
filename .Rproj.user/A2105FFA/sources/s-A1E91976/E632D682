@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1532385784606.000,
+    "dirty" : true,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "E632D682",
+    "lastKnownWriteTime" : 1532386879,
+    "last_content_update" : 1532388981770,
+    "path" : "E:/Columbia_University/Internship/R_File/LASSO/R/Elastic_Net_Main.R",
+    "project_path" : "R/Elastic_Net_Main.R",
+    "properties" : {
+        "cursorPosition" : "7,24",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

@@ -1,0 +1,43 @@
+# Elastic Net
+library(glmnet)
+library(ggplot2)
+library(Rcpp)
+sourceCpp("src/ALO_Primal.cpp")
+
+
+X.full=ElasticNetALO(beta, intercept, 
+                     X, y, 
+                     0, 0)
+# Elastic Net with Intercept ----------------------------------------------
+
+# misspecification --------------------------------------------------------
+
+# parameters
+n=300
+p=600
+k=60
+log10.lambda=seq(log10(1E-3),log10(4E-2),length.out=40)
+lambda=10^log10.lambda
+lambda=sort(lambda,decreasing=TRUE)
+alpha=seq(0,1,0.1)
+param=data.frame(alpha=numeric(0),lambda=numeric(0),lambda.print=numeric(0))
+for(i in 1:length(alpha)) {
+  for(j in 1:length(lambda)) {
+    param[j+(i-1)*length(lambda),c('alpha','lambda')]=c(alpha[i],lambda[j])
+    param$lambda.print[j+(i-1)*length(lambda)]=lambda[j]+max(lambda)*1.1*(i-1)
+  }
+}
+set.seed(1234)
+
+# simulation
+beta=rnorm(p,mean=0,sd=1)
+beta[(k+1):p]=0
+intercept=1
+X=matrix(rnorm(n*p,mean=0,sd=sqrt(1/k)),ncol=p)
+sigma=rnorm(n,mean=0,sd=0.5)
+y=intercept+X%*%beta+sigma
+index=which(y>=0)
+y[index]=sqrt(y[index])
+y[-index]=-sqrt(-y[-index])
+
+

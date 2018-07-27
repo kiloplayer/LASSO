@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1532383534573.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "7DC658FA",
+    "lastKnownWriteTime" : 1532370715,
+    "last_content_update" : 1532370715,
+    "path" : "E:/Columbia_University/Internship/R_File/Elastic_Net.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "33,27",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
