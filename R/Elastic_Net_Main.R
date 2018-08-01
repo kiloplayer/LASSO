@@ -56,7 +56,7 @@ for (i in 1:n) {
     ) %dopar%
     Elastic_Net_LOO(X, y, i, alpha[k], lambda, intercept = TRUE)
   # save the prediction value
-  y.loo[i,] = y.temp
+  y.loo[i, ] = y.temp
   # print middle result
   if (i %% 10 == 0)
     print(
@@ -143,7 +143,7 @@ result$alpha = factor(result$alpha)
 p = ggplot(result) +
   geom_line(aes(x = log10(lambda), y = risk.loo), lty = 2) +
   geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
-  facet_wrap(~ alpha, nrow = 2)
+  facet_wrap( ~ alpha, nrow = 2)
 bmp(
   "figure/Elastic_Net_Misspec_with_Intercept.bmp",
   width = 1280,
@@ -151,6 +151,103 @@ bmp(
 )
 p
 dev.off()
+
+
+
+# approximate leave-one-out with Cholesky decomposition update
+
+load('RData/Elastic_Net_Misspec_LOO.RData')
+# compute the scale parameter for y
+sd.y = as.numeric(sqrt(var(y) * length(y) / (length(y) - 1)))
+y.scaled = y / sd.y
+X.scaled = X / sd.y
+# find the ALO prediction
+y.alo = matrix(ncol = dim(param)[1], nrow = n)
+starttime = proc.time() # count time
+for (k in 1:length(alpha)) {
+  # build the full data model
+  model = glmnet(
+    x = X.scaled,
+    y = y.scaled,
+    family = "gaussian",
+    alpha = alpha[k],
+    lambda = lambda / sd.y ^ 2,
+    thresh = 1E-14,
+    intercept = TRUE,
+    standardize = FALSE,
+    maxit = 1000000
+  )
+  # find the prediction for each alpha value
+  if (alpha[k] == 1) {
+    L = matrix(ncol = 0, nrow = 0)
+    idx_old = numeric(0)
+    for (j in 1:length(lambda)) {
+      print(j)
+      update = ElasticNetALO_CholUpdate(as.vector(model$beta[, j]),
+                                        model$a0[j] * sd.y,
+                                        X,
+                                        y,
+                                        lambda[j],
+                                        alpha[k],
+                                        L,
+                                        idx_old)
+      y.alo[, (k - 1) * length(lambda) + j] = update[[1]]
+      L = update[[2]]
+      idx_old = as.vector(update[[3]])
+    }
+  } else {
+    y.temp <- foreach(j = 1:length(lambda), .combine = cbind) %do% {
+      ElasticNetALO(as.vector(model$beta[, j]),
+                    model$a0[j] * sd.y,
+                    X,
+                    y,
+                    lambda[j],
+                    alpha[k])
+    }
+    y.alo[, ((k - 1) * length(lambda) + 1):(k * length(lambda))] = y.temp
+  }
+  
+  
+  # print middle result
+  print(
+    paste(
+      k,
+      " alphas have beed calculated. ",
+      "On average, every alpha needs ",
+      round((proc.time() - starttime)[3] / k, 2),
+      " seconds."
+    )
+  )
+}
+# true leave-one-out risk estimate
+risk.alo = 1 / n * colSums((y.alo -
+                              matrix(rep(y, dim(
+                                param
+                              )[1]), ncol = dim(param)[1])) ^ 2)
+# record the result
+result = cbind(result, risk.alo)
+
+# save the data
+save(result, y.loo, y.alo,
+     file = "RData/Elastic_Net_Misspec_ALO_CholUpdate.RData")
+
+# plot
+load("RData/Elastic_Net_Misspec_ALO_CholUpdate.RData")
+result$alpha = factor(result$alpha)
+p = ggplot(result) +
+  geom_line(aes(x = log10(lambda), y = risk.loo), lty = 2) +
+  geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
+  facet_wrap( ~ alpha, nrow = 2)
+bmp(
+  "figure/Elastic_Net_Misspec_with_Intercept_CholUpdate.bmp",
+  width = 1280,
+  height = 720
+)
+p
+dev.off()
+
+
+
 
 
 # heavy-tailed noise ------------------------------------------------------
@@ -198,7 +295,7 @@ for (i in 1:n) {
     ) %dopar%
     Elastic_Net_LOO(X, y, i, alpha[k], lambda, intercept = TRUE)
   # save the prediction value
-  y.loo[i,] = y.temp
+  y.loo[i, ] = y.temp
   # print middle result
   if (i %% 10 == 0)
     print(
@@ -285,7 +382,7 @@ result$alpha = factor(result$alpha)
 p = ggplot(result) +
   geom_line(aes(x = log10(lambda), y = risk.loo), lty = 2) +
   geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
-  facet_wrap(~ alpha, nrow = 2)
+  facet_wrap( ~ alpha, nrow = 2)
 bmp("figure/Elastic_Net_HTN_with_Intercept.bmp",
     width = 1280,
     height = 720)
@@ -351,7 +448,7 @@ for (i in 1:n) {
     ) %dopar%
     Elastic_Net_LOO(X, y, i, alpha[k], lambda, intercept = TRUE)
   # save the prediction value
-  y.loo[i,] = y.temp
+  y.loo[i, ] = y.temp
   # print middle result
   if (i %% 10 == 0)
     print(
@@ -438,7 +535,7 @@ result$alpha = factor(result$alpha)
 p = ggplot(result) +
   geom_line(aes(x = log10(lambda), y = risk.loo), lty = 2) +
   geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
-  facet_wrap(~ alpha, nrow = 2)
+  facet_wrap( ~ alpha, nrow = 2)
 bmp(
   "figure/Elastic_Net_CorrDesign_with_Intercept.bmp",
   width = 1280,
@@ -498,7 +595,7 @@ for (i in 1:n) {
     ) %dopar%
     Elastic_Net_LOO(X, y, i, alpha[k], lambda, intercept = FALSE)
   # save the prediction value
-  y.loo[i,] = y.temp
+  y.loo[i, ] = y.temp
   # print middle result
   if (i %% 10 == 0)
     print(
@@ -585,7 +682,7 @@ result$alpha = factor(result$alpha)
 p = ggplot(result) +
   geom_line(aes(x = log10(lambda), y = risk.loo), lty = 2) +
   geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
-  facet_wrap(~ alpha, nrow = 2)
+  facet_wrap( ~ alpha, nrow = 2)
 bmp(
   "figure/Elastic_Net_Misspec_without_Intercept.bmp",
   width = 1280,
@@ -640,7 +737,7 @@ for (i in 1:n) {
     ) %dopar%
     Elastic_Net_LOO(X, y, i, alpha[k], lambda, intercept = FALSE)
   # save the prediction value
-  y.loo[i,] = y.temp
+  y.loo[i, ] = y.temp
   # print middle result
   if (i %% 10 == 0)
     print(
@@ -727,7 +824,7 @@ result$alpha = factor(result$alpha)
 p = ggplot(result) +
   geom_line(aes(x = log10(lambda), y = risk.loo), lty = 2) +
   geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
-  facet_wrap(~ alpha, nrow = 2)
+  facet_wrap( ~ alpha, nrow = 2)
 bmp(
   "figure/Elastic_Net_HTN_without_Intercept.bmp",
   width = 1280,
@@ -795,7 +892,7 @@ for (i in 1:n) {
     ) %dopar%
     Elastic_Net_LOO(X, y, i, alpha[k], lambda, intercept = FALSE)
   # save the prediction value
-  y.loo[i,] = y.temp
+  y.loo[i, ] = y.temp
   # print middle result
   if (i %% 10 == 0)
     print(
@@ -882,7 +979,7 @@ result$alpha = factor(result$alpha)
 p = ggplot(result) +
   geom_line(aes(x = log10(lambda), y = risk.loo), lty = 2) +
   geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
-  facet_wrap(~ alpha, nrow = 2)
+  facet_wrap( ~ alpha, nrow = 2)
 bmp(
   "figure/Elastic_Net_CorrDesign_without_Intercept.bmp",
   width = 1280,
