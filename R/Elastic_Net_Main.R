@@ -164,6 +164,7 @@ X.scaled = X / sd.y
 # find the ALO prediction
 y.alo = matrix(ncol = dim(param)[1], nrow = n)
 starttime = proc.time() # count time
+XtX = t(cbind(1, X)) %*% cbind(1, X)
 for (k in 1:length(alpha)) {
   # build the full data model
   model = glmnet(
@@ -190,7 +191,8 @@ for (k in 1:length(alpha)) {
                                         lambda[j],
                                         alpha[k],
                                         L,
-                                        idx_old)
+                                        idx_old,
+                                        XtX)
       y.alo[, (k - 1) * length(lambda) + j] = update[[1]]
       L = update[[2]]
       idx_old = as.vector(update[[3]])
