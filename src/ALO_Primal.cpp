@@ -7,42 +7,42 @@ using namespace arma;
 // [[Rcpp::plugins(cpp11)]]
 
 // [[Rcpp::export]]
-vec ElasticNetALO(vec beta, double intercept, 
-                  mat X, vec y, 
-                  double lambda, double alpha) {
-  // find out the dimension of X
-  double n = X.n_rows;
-  double p = X.n_cols;
-  // define full data set
-  vec ones(n,fill::ones);
-  mat X_full = X;
-  X_full.insert_cols(0, ones);
+vec ElasticNetALO(const vec &beta, const double &intercept, 
+                  const mat &X, const vec &y, const mat &XtX, 
+                  const double &lambda, const double &alpha) {
   // define full beta (intercept & slope)
-  vec beta_full(p + 1);
+  vec beta_full(X.n_cols); // X is full design matrix
   beta_full(0) = intercept;
-  beta_full(span(1, p)) = beta;
+  beta_full(span(1, X.n_cols - 1)) = beta;
   // compute prediction
-  vec y_hat = X_full * beta_full;
+  vec y_hat = X * beta_full;
   // find active set
   uvec A = find(beta_full != 0);
-  cout<<A.n_elem<<endl;
+  cout << "Active Set Size: " << A.n_elem << endl;
   // compute matrix H
-  mat H(n, n, fill::zeros);
+  vec diag_H(A.n_elem, fill::zeros);
   if(!A.is_empty()) {
-    mat X_active = X_full.cols(A);
-    mat R_diff2(A.n_elem, A.n_elem, fill::eye);
-    R_diff2 = R_diff2 * n * lambda * (1-alpha);
+    // mat X_active = X_full.cols(A).t();
+    vec R_diff2(A.n_elem, fill::ones);
+    // mat R_diff2(A.n_elem, A.n_elem, fill::eye);
+    R_diff2 = R_diff2 * X.n_rows * lambda * (1 - alpha);
     if(intercept != 0) {
-      R_diff2(0,0) = 0;
+      R_diff2(0) = 0;
+      // R_diff2(0,0) = 0;
     }
-    mat L = chol(X_active.t() * X_active + R_diff2).t();
-    mat L_inv = inv(L);
-    mat AE = L_inv * X_active.t();
-    H = AE.t() * AE;
+    // mat middle = X_full.cols(A).t() * X_full.cols(A);
+    mat middle = XtX(A, A);
+    middle.diag() = middle.diag() + R_diff2;
+    middle = inv_sympd(middle);
+    diag_H = sum((X.cols(A) * middle) % X.cols(A), 1);
+    // mat L = chol(X_active.t() * X_active + R_diff2).t(); // lower triangle
+    // mat AE = solve(trimatl(L), X_active.t());
+    // H = AE.t() * AE;
     // H = X_active * inv_sympd(X_active.t() * X_active + R_diff2) * X_active.t();
   }
   // compute the ALO prediction
-  vec y_alo = y_hat + H.diag() % (y_hat - y) / (1-H.diag());
+  // vec y_alo = y_hat + H.diag() % (y_hat - y) / (1-H.diag());
+  vec y_alo = y_hat + diag_H % (y_hat - y) / (1 - diag_H);
   return y_alo;
 }
 
@@ -132,65 +132,65 @@ vec PoissonALO(vec beta, double intercept,
 }
 
 // [[Rcpp::export]]
-mat MultinomialALO(mat beta, vec intercept, 
-                   mat X, mat y, 
+mat MultinomialALO(vec beta, bool intercept, 
+                   mat X, mat X_Sp, mat y_mat, 
                    double lambda, double alpha) {
   // find out the dimension of X
   double n = X.n_rows; // N
-  double p = X.n_cols; // P
-  double num_class = y.n_cols; // K
-  // define the output matrix
-  mat y_alo_linear(n, num_class);
-  mat y_alo_exp(n, num_class);
-  mat y_alo(n, num_class);
-  // define full data set
-  vec ones(n,fill::ones);
-  mat X_full = X; // N * (P + 1)
-  X_full.insert_cols(0, ones);
-  // define full beta (intercept & slope)
-  mat beta_full(p + 1, num_class); // (P + 1) * K
-  beta_full(0, span(0, num_class - 1)) = intercept.t();
-  beta_full(span(1, p), span(0, num_class - 1)) = beta;
-  // compute linear prediction and its exponential value
-  mat y_linear = X_full * beta_full; // N * K
-  mat y_exp = exp(y_linear); // N * K
-  // compute the summation of all classes y_exp
-  vec sum_y_exp = sum(y_exp, 1); // N * 1
-  // for loop to compute the prediction under each class
-  for (int k = 0; k < num_class; ++k) {
-    // find active set
-    uvec A = find(beta_full.col(k) != 0);
-    // compute matrix D
-    mat D(n, n, fill::zeros);
-    D.diag() = y_exp.col(k) % (sum_y_exp - y_exp.col(k)) / (sum_y_exp % sum_y_exp);
-    // compute matrix H
-    mat H(n, n, fill::zeros);
-    if(!A.is_empty()) {
-      mat X_active = X_full.cols(A);
-      mat R_diff2(A.n_elem, A.n_elem, fill::eye);
-      R_diff2 = R_diff2 * n * lambda * (1 - alpha);
-      if(intercept(k) != 0) {
-        R_diff2(0,0) = 0;
-      }
-      mat L = chol(X_active.t() * D * X_active + R_diff2).t();
-      mat L_inv = inv(L);
-      mat AE = L_inv * X_active.t();
-      H = AE.t() * AE;
-    }
-    // compute the ALO prediction
-    y_alo_linear.col(k) = y_linear.col(k) + 
-      H.diag() % (y_exp.col(k) / sum_y_exp - y.col(k)) / 
-      (1 - H.diag() % D.diag());
-    y_alo_exp.col(k) = exp(y_alo_linear.col(k));
+  double p; // P
+  if (intercept) {
+    p = X.n_cols - 1;
+  } else {
+    p = X.n_cols;
   }
-  // compute the summation of all classes y_exp
-  vec sum_y_alo_exp = sum(y_alo_exp, 1); // N * 1
-  // compute the alo prediction
-  for (int k = 0; k < num_class; ++k) {
-    y_alo.col(k) = y_alo_exp.col(k) / sum_y_alo_exp;
+  double num_class = y_mat.n_cols; // K
+  // find the active set
+  uvec E = find(beta != 0);
+  // compute vector A(beta) and matrix D(beta)
+  vec A(n * num_class, fill::none);
+  mat D(n * num_class, n * num_class, fill::zeros);
+  for (uword i = 0; i < n; ++i) {
+    uvec idx = regspace<uvec>(i * num_class, 1, (i + 1) * num_class - 1);
+    A(idx) = exp(X_Sp.rows(idx) * beta);
+    A(idx) = A(idx) / sum(A(idx));
+    D(idx, idx) = diagmat(A(idx)) - A(idx) * A(idx).t();
   }
-  return y_alo;
+  // compute R_diff2
+  mat R_diff2;
+  if (intercept) {
+    R_diff2 = eye<mat>((p + 1) * num_class, (p + 1) * num_class);
+    R_diff2.diag() = R_diff2.diag() * n * lambda * (1 - alpha);
+    uvec idx = regspace<uvec>(0, num_class - 1) * (p + 1);
+    R_diff2(idx, idx) = R_diff2(idx, idx) * 0;
+  } else {
+    R_diff2 = eye<mat>(p * num_class, p * num_class);
+    R_diff2.diag() = R_diff2.diag() * n * lambda * (1 - alpha);
+  }
+  // compute matrix K(beta) and its inverse
+  mat K_inv = pinv(X_Sp.cols(E).t() * D * X_Sp.cols(E) + R_diff2(E, E), 0);
+  // do leave-i-out prediction
+  mat y_alo(n, num_class, fill::none);
+  for (uword i = 0; i < n; ++i) {
+    // find the X_i and y_i
+    uvec idx = regspace<uvec>(i * num_class, 1, (i + 1) * num_class - 1);
+    mat X_i = X_Sp.rows(idx);
+    vec y_i = conv_to<vec>::from(y_mat.row(i));
+    // find A_i
+    vec A_i = A(idx);
+    // compute XKX
+    mat XKX = X_i.cols(E) * K_inv * X_i.cols(E).t();
+    // compute the inversion of diag(A)-A*A^T
+    mat middle_inv = pinv(diagmat(A_i) - A_i * A_i.t(), 0);
+    // compute the leave-i-out prediction
+    vec y_linear = X_i * beta + XKX * (A_i - y_i) - 
+      XKX * pinv(-middle_inv + XKX, 0) * XKX * (A_i - y_i);
+    vec y_exp = exp(y_linear);
+    y_alo.row(i) = conv_to<rowvec>::from(y_exp) / sum(y_exp);
+  }
+  // return alo
+  return(y_alo);
 }
+
 
 // [[Rcpp::export]]
 vec GenLASSOALO(vec beta, vec u, mat X, vec y, mat D, 
@@ -410,7 +410,8 @@ field<mat> ElasticNetALO_CholUpdate(vec beta, double intercept,
 }
 
 // [[Rcpp::export]]
-mat BlockInverse_Add(mat X, uvec idx_A, uvec idx_add, mat A_inv) {
+mat BlockInverse_Add(const mat &X, const uvec &idx_A, 
+                     const uvec &idx_add, const mat &A_inv) {
   // using block matrix inversion lemma to update the inverse of a matrix
   // X - symmetric matrix
   // idx_A - old index in X for A_inv
@@ -433,10 +434,12 @@ mat BlockInverse_Add(mat X, uvec idx_A, uvec idx_add, mat A_inv) {
   // compute the updated inverse matrix
   uword size = idx_A.n_elem + idx_add.n_elem;
   mat out(size, size);
-  out.submat(0, 0, idx_A.n_elem - 1, idx_A.n_elem - 1) = 
-    A_inv + A_inv * BE * X(idx_add, idx_A) * A_inv;
   out.submat(0, idx_A.n_elem, idx_A.n_elem - 1, size - 1) = - A_inv * BE;
-  out.submat(idx_A.n_elem, 0, size - 1, idx_A.n_elem - 1) = - E * X(idx_add, idx_A) * A_inv;
+  out.submat(0, 0, idx_A.n_elem - 1, idx_A.n_elem - 1) = 
+    A_inv - out.submat(0, idx_A.n_elem, idx_A.n_elem - 1, size - 1) * 
+    X(idx_add, idx_A) * A_inv;
+  // out.submat(idx_A.n_elem, 0, size - 1, idx_A.n_elem - 1) = - E * X(idx_add, idx_A) * A_inv;
+  out.submat(idx_A.n_elem, 0, size - 1, idx_A.n_elem - 1) = out.submat(0, idx_A.n_elem, idx_A.n_elem - 1, size - 1).t();
   out.submat(idx_A.n_elem, idx_A.n_elem, size - 1, size - 1) = E;
   
   // return value
@@ -445,7 +448,7 @@ mat BlockInverse_Add(mat X, uvec idx_A, uvec idx_add, mat A_inv) {
 
 
 // [[Rcpp::export]]
-mat BlockInverse_Drop(mat F_inv, uword n_keep) {
+mat BlockInverse_Drop(const mat &F_inv, const uword &n_keep) {
   // using block matrix inversion lemma to update the inverse of a matrix
   // F_inv - the inverse of the full matrix, we only need the inverse of the first a few rows
   // n_keep - number of rows & cols to keep
@@ -468,21 +471,59 @@ mat BlockInverse_Drop(mat F_inv, uword n_keep) {
     F_inv.submat(n_keep, 0, F_inv.n_rows - 1, n_keep - 1);
   
   // return value
-  return(out);
+  return out;
 }
 
 
 // [[Rcpp::export]]
-vec BlockInverse_ALO(mat X, mat A_inv, vec y, vec beta, uvec E) {
+vec BlockInverse_ALO(const mat &X, const mat &A_inv, const vec &y, 
+                     const vec &beta, const uvec &E) {
   // compute y_hat
   vec y_hat = X * beta;
-  // compute H
-  mat H = X.cols(E) * A_inv * X.cols(E).t();
+  // compute diag(H)
+  vec diag_H = sum((X.cols(E) * A_inv) % X.cols(E), 1);
   // compute ALO
-  vec y_alo = y_hat + H.diag() % (y_hat - y) / (1-H.diag());
+  vec y_alo = y_hat + diag_H % (y_hat - y) / (1 - diag_H);
   return y_alo;
 }
 
+
+// [[Rcpp::export]]
+mat Schulz_Iterate(const mat &A, const mat &V_old) {
+  // one-step Schulz iteration
+  // want to find out the inverse of A
+  // V_old - kth step approximate inverse of A
+  
+  // compute the updated V_new
+  mat identity(A.n_rows, A.n_cols, fill::eye);
+  mat V_new = V_old * (2 * identity - A * V_old);
+  // mat V_new = 0.5 * V_old * (3 * identity - V_old * V_old);
+  return V_new;
+}
+
+// [[Rcpp::export]]
+double Schulz_Error(const mat &A, const mat &V_old) {
+  // compute the updated V_new
+  mat identity(A.n_rows, A.n_cols, fill::eye);
+  double err = abs(A * V_old - identity).max();
+  return err;
+}
+
+
+// [[Rcpp::export]]
+mat ElasticNet_Taylor(const mat &A_inv, const mat &mid) {
+  // compute the first order Taylor expansion of F inverse
+  // A_inv - inverse of matrix A = X[, idx_new].t() * D(lambda_old) * X[, idx_new] + lambda_old * alpha * identity_matrix
+  // X - design matrix, n * p
+  // idx_new - index of columns of X for active set
+  // delta - D(lambda_new) - D(lambda_old)
+  
+  // define identity matrix
+  mat identity(A_inv.n_rows, A_inv.n_cols, fill::eye);
+  // compute approximate F inverse
+  mat F_inv = A_inv * (identity - mid * A_inv);
+  return F_inv;
+}
   
 // You can include R code blocks in C++ files processed with sourceCpp
 // (useful for testing and development). The R code will be automatically 
@@ -503,4 +544,8 @@ mat.12 = mat[1:2, 1:2]
 # mat.added = BlockInverse_Add(mat, (1:2)-1, (3:4)-1, solve(mat.12))
 mat.added = BlockInverse_Add(mat, numeric(0), 3, matrix(ncol=0,nrow=0))
 mat.dropped = BlockInverse_Drop(mat.added, 1)
+
+A = matrix(c(1,2,3,1), ncol=2)
+V_old = solve(A) + matrix(rep(0.01,4),ncol=2)
+V_new = Schulz_Iterate(A, V_old)
 */

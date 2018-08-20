@@ -6,10 +6,11 @@ library(Rcpp)
 sourceCpp("src/ALO_Primal.cpp")
 source("R/Logistic_Functions.R")
 
+# 1 Logistic with Intercept -----------------------------------------------
 
-# Logistic with Intercept -------------------------------------------------
 
-# parameters
+# 1.1 Set Parameters ------------------------------------------------------
+
 n = 300
 p = 600
 k = 60
@@ -23,9 +24,11 @@ for (i in 1:length(alpha)) {
     param[j + (i - 1) * length(lambda), c('alpha', 'lambda')] = c(alpha[i], lambda[j])
   }
 }
-set.seed(1234)
 
-# simulation
+
+# 1.2 Simulation ----------------------------------------------------------
+
+set.seed(1234)
 beta = rnorm(p, mean = 0, sd = 1)
 beta[(k + 1):p] = 0
 intercept = 1
@@ -35,7 +38,8 @@ prob = exp(y.linear) / (1 + exp(y.linear))
 y = rbinom(n, 1, prob = prob)
 y.factor = factor(y)
 
-# true leave-one-out
+# 1.3 LOO -----------------------------------------------------------------
+
 y.loo = matrix(ncol = dim(param)[1], nrow = n)
 starttime = proc.time() # count time
 library(foreach)
@@ -53,7 +57,7 @@ for (i in 1:n) {
     ) %dopar%
     Logistic_LOO(X, y.factor, i, alpha[k], lambda, intercept = TRUE)
   # save the prediction value
-  y.loo[i, ] = y.temp
+  y.loo[i,] = y.temp
   # print middle result
   if (i %% 10 == 0)
     print(
@@ -78,7 +82,9 @@ result = cbind(param, risk.loo)
 save(result, y.loo,
      file = "RData/Logistic_LOO.RData")
 
-# approximate leave-one-out
+
+# 1.4 ALO -----------------------------------------------------------------
+
 load('RData/Logistic_LOO.RData')
 # find the ALO prediction
 y.alo = matrix(ncol = dim(param)[1], nrow = n)
@@ -129,7 +135,9 @@ result = cbind(result, risk.alo)
 save(result, y.loo, y.alo,
      file = "RData/Logistic_ALO")
 
-# plot
+
+# 1.5 Plot ----------------------------------------------------------------
+
 load("RData/Logistic_ALO")
 result$alpha = factor(result$alpha)
 p = ggplot(result) +
@@ -138,7 +146,7 @@ p = ggplot(result) +
   ggtitle('Logistic Regression with Intercept & Elastic Net penalty') +
   xlab("Logarithm of Lambda") +
   ylab("Risk Estimate") +
-  facet_wrap(~ alpha, nrow = 2)
+  facet_wrap( ~ alpha, nrow = 2)
 bmp("figure/Logistic_with_Intercept.bmp",
     width = 1280,
     height = 720)
@@ -146,9 +154,11 @@ p
 dev.off()
 
 
-# Logistic without Intercept ----------------------------------------------
+# 2 Logistic without Intercept --------------------------------------------
 
-# parameters
+
+# 2.1 Set Parameters ------------------------------------------------------
+
 n = 300
 p = 600
 k = 60
@@ -163,9 +173,10 @@ for (i in 1:length(alpha)) {
   }
 }
 
-set.seed(1234)
 
-# simulation
+# 2.2 Simulation ----------------------------------------------------------
+
+set.seed(1234)
 beta = rnorm(p, mean = 0, sd = 1)
 beta[(k + 1):p] = 0
 intercept = 0
@@ -175,7 +186,9 @@ prob = exp(y.linear) / (1 + exp(y.linear))
 y = rbinom(n, 1, prob = prob)
 y.factor = factor(y)
 
-# true leave-one-out
+
+# 2.3 LOO -----------------------------------------------------------------
+
 y.loo = matrix(ncol = dim(param)[1], nrow = n)
 starttime = proc.time() # count time
 library(foreach)
@@ -193,7 +206,7 @@ for (i in 1:n) {
     ) %dopar%
     Logistic_LOO(X, y.factor, i, alpha[k], lambda, intercept = FALSE)
   # save the prediction value
-  y.loo[i, ] = y.temp
+  y.loo[i,] = y.temp
   # print middle result
   if (i %% 10 == 0)
     print(
@@ -218,7 +231,9 @@ result = cbind(param, risk.loo)
 save(result, y.loo,
      file = "RData/Logistic_without_InterceptLOO.RData")
 
-# approximate leave-one-out
+
+# 2.4 ALO -----------------------------------------------------------------
+
 load('RData/Logistic_without_InterceptLOO.RData')
 # find the ALO prediction
 y.alo = matrix(ncol = dim(param)[1], nrow = n)
@@ -269,7 +284,9 @@ result = cbind(result, risk.alo)
 save(result, y.loo, y.alo,
      file = "RData/Logistic_without_Intercept_ALO")
 
-# plot
+
+# 2.5 Plot ----------------------------------------------------------------
+
 load("RData/Logistic_without_Intercept_ALO")
 result$alpha = factor(result$alpha)
 p = ggplot(result) +
@@ -278,7 +295,7 @@ p = ggplot(result) +
   ggtitle('Logistic Regression with Elastic Net penalty & without Intercept') +
   xlab("Logarithm of Lambda") +
   ylab("Risk Estimate") +
-  facet_wrap(~ alpha, nrow = 2)
+  facet_wrap( ~ alpha, nrow = 2)
 bmp("figure/Logistic_without_Intercept.bmp",
     width = 1280,
     height = 720)
@@ -286,28 +303,22 @@ p
 dev.off()
 
 
-# Multinomial with Intercept ----------------------------------------------
+# 3 Multinomial with Intercept --------------------------------------------
 
-# parameters
+
+# 3.1 Set Parameters ------------------------------------------------------
+
 n = 300
 p = 200
 k = 60
 num_class = 5
-lambda = 10 ^ seq(log10(5E-4), log10(1E-1), length.out = 50)
-lambda = sort(lambda, decreasing = TRUE)
-alpha = seq(0, 1, 0.1)
-param = data.frame(alpha = numeric(0),
-                   lambda = numeric(0))
-for (i in 1:length(alpha)) {
-  for (j in 1:length(lambda)) {
-    param[j + (i - 1) * length(lambda), c('alpha', 'lambda')] = c(alpha[i], lambda[j])
-  }
-}
-set.seed(1234)
 
-# simulation
+
+# 3.2 Simulation ----------------------------------------------------------
+
+set.seed(1234)
 beta = matrix(rnorm(num_class * p, mean = 0, sd = 1), ncol = num_class)
-beta[(k + 1):p, ] = 0
+beta[(k + 1):p,] = 0
 intercept = rnorm(num_class, mean = 0, sd = 1)
 X = matrix(rnorm(n * p, mean = 0, sd = sqrt(1 / k)), ncol = p)
 y.linear = matrix(rep(intercept, n), ncol = num_class, byrow = TRUE) +
@@ -319,7 +330,23 @@ y.mat = t(apply(prob, 1, function(x)
 y.num = apply(y.mat == 1, 1, which) # vector
 y.num.factor = factor(y.num, levels = seq(1:num_class))
 
-# true leave-one-out
+
+# 3.3 Define Lambda and Alpha ---------------------------------------------
+
+lambda = 10 ^ seq(-3.5, -0.5, length.out = 30)
+lambda = sort(lambda, decreasing = TRUE)
+alpha = seq(0, 1, 0.2)
+param = data.frame(alpha = numeric(0),
+                   lambda = numeric(0))
+for (i in 1:length(alpha)) {
+  for (j in 1:length(lambda)) {
+    param[j + (i - 1) * length(lambda), c('alpha', 'lambda')] = c(alpha[i], lambda[j])
+  }
+}
+
+
+# 3.4 LOO -----------------------------------------------------------------
+
 y.loo = array(numeric(0), dim = c(dim(y.mat)[1],
                                   dim(y.mat)[2],
                                   dim(param)[1])) # N * K * #param
@@ -339,7 +366,7 @@ for (i in 1:n) {
     ) %dopar%
     Multinomial_LOO(X, y.num.factor, i, alpha[k], lambda, intercept = TRUE)
   # save the prediction value
-  y.loo[i, ,] = y.temp
+  y.loo[i, , ] = y.temp
   # print middle result
   if (i %% 1 == 0)
     print(
@@ -363,11 +390,14 @@ result = cbind(param, risk.loo)
 # record time
 time.loo = proc.time() - starttime
 # save the data
-save(result, y.loo, time.loo,
+save(result, y.loo, risk.loo,
      file = "RData/Multinomial_LOO.RData")
 
-# approximate leave-one-out
+
+# 3.5 ALO in R ------------------------------------------------------------
+
 load('RData/Multinomial_LOO.RData')
+library(MASS)
 # find the ALO prediction
 y.alo = array(numeric(0), dim = c(dim(y.mat)[1],
                                   dim(y.mat)[2],
@@ -399,13 +429,13 @@ for (k in 1:length(alpha)) {
   for (j in 1:length(lambda)) {
     # extract beta under all of the class
     beta.temp = matrix(nrow = p + 1, ncol = num_class)
-    beta.temp[1, ] = as.vector(model$a0[, j])
+    beta.temp[1,] = as.vector(model$a0[, j])
     for (i in 1:num_class) {
       beta.temp[2:(p + 1), i] = as.matrix(model$beta[[i]])[, j]
     }
-    for(i in 1:num_class) {
-      beta.temp[,i]=beta.temp[,i]-beta.temp[,num_class]
-    }
+    # for(i in 1:num_class) {
+    #   beta.temp[,i]=beta.temp[,i]-beta.temp[,num_class]
+    # }
     beta.temp = as.vector(beta.temp)
     
     # find the active set
@@ -416,13 +446,13 @@ for (k in 1:length(alpha)) {
     D = matrix(0, nrow = n * num_class, ncol = n * num_class)
     for (i in 1:n) {
       idx = ((i - 1) * num_class + 1):(i * num_class)
-      A[idx] = exp(X.expand[idx, ] %*% beta.temp)
+      A[idx] = exp(X.expand[idx,] %*% beta.temp)
       A[idx] = A[idx] / sum(A[idx])
       D[idx, idx] = diag(A[idx]) - A[idx] %*% t(A[idx])
     }
-    idx=seq(1,n)*num_class
-    A=A[-idx]
-    D=D[-idx,-idx]
+    # idx=seq(1,n)*num_class
+    # A=A[-idx]
+    # D=D[-idx,-idx]
     
     # compute R_diff2
     R_diff2 = matrix(0,
@@ -433,40 +463,136 @@ for (k in 1:length(alpha)) {
                                                            1) * (p + 1)] = 0
     
     # compute matrix K(beta) and its inverse
-    # K = t(X.expand[, E]) %*% D %*% X.expand[, E] + R_diff2[E, E]
-    K = t(X.expand[-idx, E]) %*% D %*% X.expand[-idx, E] + R_diff2[E, E]
-    K.inv = solve(K)
+    K = t(X.expand[, E]) %*% D %*% X.expand[, E] + R_diff2[E, E]
+    # K = t(X.expand[-idx, E]) %*% D %*% X.expand[-idx, E] + R_diff2[E, E]
+    K.inv = ginv(K)
     
     # do leave-i-out prediction
     for (i in 1:n) {
       # find the X_i and y_i
-      # X.i = X.expand[((i - 1) * num_class + 1):(i * num_class), ]
-      X.i = X.expand[((i - 1) * num_class + 1):(i * num_class-1), ]
-      # y.i = y.mat[i,]
-      y.i=y.mat[i,1:(num_class-1)]
+      X.i = X.expand[((i - 1) * num_class + 1):(i * num_class),]
+      # X.i = X.expand[((i - 1) * num_class + 1):(i * num_class-1), ]
+      y.i = y.mat[i, ]
+      # y.i=y.mat[i,1:(num_class-1)]
       
       # find the A_i
-      # A.i = A[((i - 1) * num_class + 1):(i * num_class)]
-      A.i = A[((i - 1) * (num_class-1) + 1):(i * (num_class-1))]
+      A.i = A[((i - 1) * num_class + 1):(i * num_class)]
+      # A.i = A[((i - 1) * (num_class-1) + 1):(i * (num_class-1))]
       
       # compute X_i * K.inv * X_i^T
       XKX = X.i[, E] %*% K.inv %*% t(X.i[, E])
       
       # compute the inversion of diag(A)-A*A^T
-      middle.inv = solve(diag(A.i)) -
-        solve(diag(A.i)) %*% A.i %*% solve(-1 +
-                                             t(A.i) %*% solve(diag(A.i)) %*% A.i) %*% t(A.i) %*% solve(diag(A.i))
+      middle.inv = ginv(diag(A.i) - A.i %*% t(A.i))
+      # middle.inv = solve(diag(A.i)) -
+      #   solve(diag(A.i)) %*% A.i %*% solve(-1 +
+      #                                        t(A.i) %*% solve(diag(A.i)) %*% A.i) %*% t(A.i) %*% solve(diag(A.i))
       
       # compute the leave-i-out prediction
       y.alo.linear = X.i %*% beta.temp + XKX %*% (A.i - y.i) -
-        XKX %*% solve(-middle.inv + XKX) %*% XKX %*% (A.i - y.i)
-      # y.alo.exp = exp(y.alo.linear)
-      y.alo.exp = c(exp(y.alo.linear),1)
+        XKX %*% ginv(-middle.inv + XKX) %*% XKX %*% (A.i - y.i)
+      y.alo.exp = exp(y.alo.linear)
+      # y.alo.exp = c(exp(y.alo.linear),1)
       y.alo[i, , (k - 1) * length(lambda) + j] = y.alo.exp / sum(y.alo.exp)
-      
-      # print result
-      print(paste('#alpha =', k, ', #lambda =', j, ', #obs =', i))
     }
+    # print result
+    print(paste('#alpha =', k, ', #lambda =', j))
+  }
+  # print middle result
+  print(
+    paste(
+      k,
+      " alphas have beed calculated. ",
+      "On average, every alpha needs ",
+      round((proc.time() - starttime)[3] / k, 2),
+      " seconds."
+    )
+  )
+}
+# approximate leave-one-out risk estimate
+risk.alo = vector(mode = 'double', length = dim(param)[1])
+for (k in 1:dim(param)[1]) {
+  risk.alo[k] = 1 / n * sum(colSums((y.alo[, , k] - y.mat) ^ 2))
+}
+# record the result
+result = cbind(result, risk.alo)
+# record time
+time.alo = proc.time() - starttime
+# save the data
+save(result, y.loo, y.alo, risk.loo, risk.alo,
+     file = "RData/Multinomial_ALO")
+
+
+# 3.6 Plot in R -----------------------------------------------------------
+
+load("RData/Multinomial_ALO")
+result$alpha = factor(result$alpha)
+plt = ggplot(result) +
+  geom_line(aes(x = log10(lambda), y = risk.loo), col = "black", lty = 2) +
+  geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
+  ggtitle('Logistic Regression with Intercept & Elastic Net penalty') +
+  xlab("Logarithm of Lambda") +
+  ylab("Risk Estimate") +
+  facet_wrap( ~ alpha, nrow = 2)
+bmp("figure/Multinomial_in_R.bmp",
+    width = 1280,
+    height = 720)
+plt
+dev.off()
+
+
+
+# 3.7 ALO in Cpp ----------------------------------------------------------
+
+load('RData/Multinomial_LOO.RData')
+# find the ALO prediction
+y.alo = array(numeric(0), dim = c(dim(y.mat)[1],
+                                  dim(y.mat)[2],
+                                  dim(param)[1])) # N * K * #param
+starttime = proc.time() # count time
+# compute X.expand
+X.expand = matrix(0, nrow = n * num_class, ncol = (p + 1) * num_class)
+for (k in 1:num_class) {
+  X.expand[seq(0, n - 1) * num_class + k, ((p + 1) * (k - 1) + 1):((p + 1) *
+                                                                     k)] = cbind(1, X)
+}
+
+# compute for the leave-i-out prediction
+for (k in 1:length(alpha)) {
+  # build the full data model
+  model = glmnet(
+    x = X,
+    y = y.num.factor,
+    family = "multinomial",
+    alpha = alpha[k],
+    lambda = lambda,
+    thresh = 1E-14,
+    intercept = TRUE,
+    standardize = FALSE,
+    maxit = 1000000
+  )
+  # find the prediction for each alpha value
+  for (j in 1:length(lambda)) {
+    # extract beta under all of the class
+    beta.temp = matrix(nrow = p + 1, ncol = num_class)
+    beta.temp[1,] = as.vector(model$a0[, j])
+    for (i in 1:num_class) {
+      beta.temp[2:(p + 1), i] = as.matrix(model$beta[[i]])[, j]
+    }
+    beta.temp = as.vector(beta.temp)
+    
+    # leave-i-out prediction
+    y.alo[, , (k - 1) * length(lambda) + j] =
+      MultinomialALO(beta.temp,
+                     TRUE,
+                     cbind(1, X),
+                     X.expand,
+                     y.mat,
+                     lambda[j],
+                     alpha[k])
+    
+    # print result
+    print(paste('#alpha =', k, ', #lambda =', j))
   }
   # print middle result
   print(
@@ -490,20 +616,21 @@ result = cbind(result, risk.alo)
 time.alo = proc.time() - starttime
 # save the data
 save(result, y.loo, y.alo, time.loo, time.alo,
-     file = "RData/Multinomial_ALO")
+     file = "RData/Multinomial_ALO_Cpp")
 
-# plot
-load("RData/Multinomial_ALO")
+# 3.8 Plot in Cpp ---------------------------------------------------------
+
+load("RData/Multinomial_ALO_Cpp")
 result$alpha = factor(result$alpha)
-p = ggplot(result) +
+plt = ggplot(result) +
   geom_line(aes(x = log10(lambda), y = risk.loo), col = "black", lty = 2) +
   geom_line(aes(x = log10(lambda), y = risk.alo), col = "red", lty = 2) +
   ggtitle('Logistic Regression with Intercept & Elastic Net penalty') +
   xlab("Logarithm of Lambda") +
   ylab("Risk Estimate") +
-  facet_wrap(~ alpha, nrow = 2)
-bmp("figure/Logistic_with_Intercept.bmp",
+  facet_wrap( ~ alpha, nrow = 2)
+bmp("figure/Multinomial_in_Cpp.bmp",
     width = 1280,
     height = 720)
-p
+plt
 dev.off()
